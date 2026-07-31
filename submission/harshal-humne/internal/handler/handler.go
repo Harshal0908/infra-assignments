@@ -37,11 +37,14 @@ func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := h.svc.GetConfig(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		switch {
+		case errors.Is(err, service.ErrInvalidID):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		case errors.Is(err, repository.ErrNotFound):
 			http.Error(w, "config not found", http.StatusNotFound)
-			return
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
 		}
-		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -51,17 +54,18 @@ func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) upsertConfig(w http.ResponseWriter, r *http.Request) {
 	var cfg domain.Config
+
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if cfg.ID == "" {
-		http.Error(w, "id is required", http.StatusBadRequest)
-		return
-	}
-
 	if err := h.svc.UpsertConfig(r.Context(), &cfg); err != nil {
+		if errors.Is(err, service.ErrInvalidConfig) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
