@@ -56,3 +56,8 @@ func (s *Service) UpsertConfig(ctx context.Context, cfg *domain.Config) error {
 
 	return s.repo.Upsert(ctx, cfg)
 }
+
+// Ready checks whether the storage system is available.
+func (s *Service) Ready(ctx context.Context) error {
+	return s.repo.Ping(ctx)
+}

@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"config-service/internal/domain"
 	"config-service/internal/repository"
@@ -23,6 +25,7 @@ func New(svc *service.Service) *Handler {
 // RegisterRoutes attaches all routes to mux.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /ping", h.ping)
+	mux.HandleFunc("GET /readyz", h.ready)
 	mux.HandleFunc("GET /configs/{id}", h.getConfig)
 	mux.HandleFunc("POST /configs", h.upsertConfig)
 }
@@ -30,6 +33,26 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 func (h *Handler) ping(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("pong"))
+}
+
+func (h *Handler) ready(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := h.svc.Ready(ctx); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status": "not_ready",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status": "ready",
+	})
 }
 
 func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {

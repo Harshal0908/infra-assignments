@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"config-service/internal/handler"
-	"config-service/internal/repository"
+	postgresrepo "config-service/internal/repository/postgres"
 	"config-service/internal/service"
 )
 
@@ -24,7 +25,20 @@ func main() {
 		log.Fatal("APP_PORT must be an integer between 1 and 65535")
 	}
 
-	repo := repository.NewInMemory()
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
+
+	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	repo, err := postgresrepo.New(startupCtx, databaseURL)
+	if err != nil {
+		log.Fatalf("connect to database: %v", err)
+	}
+	defer repo.Close()
+
 	svc := service.New(repo)
 	h := handler.New(svc)
 

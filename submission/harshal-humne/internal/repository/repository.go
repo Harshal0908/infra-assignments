@@ -15,21 +15,28 @@ var ErrNotFound = errors.New("config not found")
 type Repository interface {
 	Get(ctx context.Context, id string) (*domain.Config, error)
 	Upsert(ctx context.Context, cfg *domain.Config) error
+	Ping(ctx context.Context) error
 }
 
 // InMemory is a thread-safe, in-memory Repository implementation.
-// It is used for local testing and as a stand-in when no database is configured.
 type InMemory struct {
 	mu   sync.RWMutex
 	data map[string]*domain.Config
 }
 
-// NewInMemory returns an initialised InMemory repository.
+// NewInMemory returns an initialized InMemory repository.
 func NewInMemory() *InMemory {
-	return &InMemory{data: make(map[string]*domain.Config)}
+	return &InMemory{
+		data: make(map[string]*domain.Config),
+	}
 }
 
-// Get retrieves a Config by its ID. Returns ErrNotFound when absent.
+// Ping reports that the in-memory repository is available.
+func (r *InMemory) Ping(_ context.Context) error {
+	return nil
+}
+
+// Get retrieves a Config by its ID.
 func (r *InMemory) Get(_ context.Context, id string) (*domain.Config, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
