@@ -1,5 +1,17 @@
 terraform {
   required_version = ">= 1.8"
+
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 3.0"
+    }
+  }
+}
+
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = "kind-config-service"
 }
 
 variable "namespace" {
@@ -8,31 +20,23 @@ variable "namespace" {
   default     = "config-service"
 }
 
-variable "db_password" {
-  description = "PostgreSQL password (supply via TF_VAR_db_password)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 locals {
   app_name = "config-service"
+
   common_labels = {
     app        = local.app_name
     managed-by = "terraform"
   }
 }
 
-# Placeholder resource that captures bootstrap metadata.
-# Replace with kubernetes_namespace, helm_release, etc. as needed.
-resource "terraform_data" "bootstrap" {
-  input = {
-    namespace = var.namespace
-    app_name  = local.app_name
+resource "kubernetes_namespace_v1" "config_service" {
+  metadata {
+    name   = var.namespace
+    labels = local.common_labels
   }
 }
 
 output "namespace" {
-  description = "Namespace the config service is deployed into"
-  value       = var.namespace
+  description = "Namespace used by the config service"
+  value       = kubernetes_namespace_v1.config_service.metadata[0].name
 }
