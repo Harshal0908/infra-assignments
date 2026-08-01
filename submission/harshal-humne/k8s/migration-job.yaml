@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: config-service-migration
+  namespace: config-service
+  labels:
+    app: config-service
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: config-service-migration
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migration
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              psql \
+                --host="$DB_HOST" \
+                --port="$DB_PORT" \
+                --username="$DB_USER" \
+                --dbname="$DB_NAME" \
+                --set=ON_ERROR_STOP=1 \
+                --file=/migrations/001_create_configs.sql
+          env:
+            - name: DB_HOST
+              value: postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: config_service
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: config-service-db
+                  key: DB_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: config-service-db
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+      volumes:
+        - name: migrations
+          configMap:
+            name: config-service-migrations
