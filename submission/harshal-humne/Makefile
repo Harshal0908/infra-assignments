@@ -8,7 +8,8 @@ TERRAFORM_DIR := infra/terraform
 	test image-build image-load \
 	infra-init infra-apply \
 	migrate deploy bootstrap \
-	status logs clean
+	status logs clean \
+	validate status logs clean
 
 help:
 	@echo "Available commands:"
@@ -23,6 +24,7 @@ help:
 	@echo "  make status          Show Kubernetes resources"
 	@echo "  make logs            Show application logs"
 	@echo "  make clean           Delete the local environment"
+	@echo "  make validate        Run deployment smoke tests"
 
 test:
 	go test ./... -race
@@ -77,3 +79,5 @@ logs:
 clean:
 	terraform -chdir="$(TERRAFORM_DIR)" destroy -auto-approve || true
 	kind delete cluster --name "$(CLUSTER_NAME)"
+validate:
+	./scripts/smoke-test.sh
