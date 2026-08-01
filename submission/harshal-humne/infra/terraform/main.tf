@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 3.0"
     }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -22,6 +27,8 @@ variable "namespace" {
 
 locals {
   app_name = "config-service"
+  db_name  = "config_service"
+  db_user  = "config_service"
 
   common_labels = {
     app        = local.app_name
@@ -33,6 +40,45 @@ resource "kubernetes_namespace_v1" "config_service" {
   metadata {
     name   = var.namespace
     labels = local.common_labels
+  }
+}
+
+resource "random_password" "database" {
+  length  = 24
+  special = false
+}
+
+resource "kubernetes_config_map_v1" "config_service" {
+  metadata {
+    name      = local.app_name
+    namespace = kubernetes_namespace_v1.config_service.metadata[0].name
+    labels    = local.common_labels
+  }
+
+  data = {
+    APP_PORT  = "8080"
+    LOG_LEVEL = "INFO"
+  }
+}
+
+resource "kubernetes_secret_v1" "database" {
+  metadata {
+    name      = "config-service-db"
+    namespace = kubernetes_namespace_v1.config_service.metadata[0].name
+    labels    = local.common_labels
+  }
+
+  type = "Opaque"
+
+  data = {
+    DB_USER     = local.db_user
+    DB_PASSWORD = random_password.database.result
+    DATABASE_URL = format(
+      "postgres://%s:%s@postgres:5432/%s?sslmode=disable",
+      local.db_user,
+      random_password.database.result,
+      local.db_name
+    )
   }
 }
 
